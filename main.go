@@ -5,35 +5,24 @@ import (
     "os"
     "io"
     "os/exec"
-    "encoding/binary"
 )
 
-// /dev/input/by-id/usb-RDR_EPOMAKER_Shadow-S-event-if02
-
-// amixer did not work
-// pactl did not work either
-// Figure out if issue is the exec.Commands or something else
 func adjustVolume(increase bool) {
-    //var cmd *exec.Cmd
-
     if increase {
+        fmt.Println("Volume up!")
         exec.Command("pactl", "set-sink-volume", "1", "+5%").Run()
     } else {
+        fmt.Println("Volume down!")
         exec.Command("pactl", "set-sink-volume", "1", "-5%").Run()
     }
-
-    //err := cmd.Run()
-    //if err != nil {
-    //  fmt.Println("Error with command: ", err)
-    //}
 }
 
 func main() {
     fmt.Println("Listening...")
 
-    file, err := os.Open("/dev/input/event16")
+    file, err := os.Open("/dev/input/by-id/usb-RDR_EPOMAKER_Shadow-S-event-if02")
     if err != nil {
-        fmt.Println("Something went wrong with the file: ", err)
+        fmt.Println("Error opening event file:", err)
         return
     }
     defer file.Close()
@@ -45,44 +34,23 @@ func main() {
         if err == io.EOF {
             break
         } else if err != nil {
-            fmt.Println("Error reading event: ", err)
+            fmt.Println("Error reading event:", err)
             break
         }
-    eventType := buffer[18]
-    eventCode := buffer[20]
-    value := buffer[22]
 
-    fmt.Printf("Buffer content: %v\n", buffer)
-    fmt.Printf("Event type: %d, Event code: %d, Value: %d\n", buffer[18], buffer[20], buffer[22])
+        eventType := uint16(buffer[16]) | uint16(buffer[17])<<8
+        eventCode := uint16(buffer[18]) | uint16(buffer[19])<<8
+        eventValue := int32(buffer[20]) | int32(buffer[21])<<8 | int32(buffer[22])<<16 | int32(buffer[23])<<24
 
-    // got this from chatgpt idk
+        fmt.Printf("Event type: %d, Event code: %d, Value: %d\n", eventType, eventCode, eventValue)
 
-    
-    type InputEvent struct {
-    Time  [8]byte   // First 16 bytes: Time (sec, usec)
-    Type  uint16    // Event type (2 bytes)
-    Code  uint16    // Event code (2 bytes)
-    Value int32     // Event value (4 bytes)
+        if eventType == 1 {
+            if eventCode == 115 && eventValue == 1 {
+                adjustVolume(true)
+            } else if eventCode == 114 && eventValue == 1 {
+                adjustVolume(false)
+            }
+        }
     }
-
-    var event InputEvent
-    for {
-    err := binary.Read(file, binary.LittleEndian, &event)
-    if err != nil {
-        fmt.Println("Error reading event:", err)
-        break
-      }
-
-    fmt.Printf("Event type: %d, Event code: %d, Value: %d\n", event.Type, event.Code, event.Value)
-    }
-    
-    if eventType == 1 {
-      if eventCode == 115 && value == 1 {
-        adjustVolume(true)
-      } else if eventCode == 114 && value == 1 {
-        adjustVolume(false)
-      }
-    }    
-  }
 }
 
