@@ -20,14 +20,14 @@ func adjustVolume(increase bool) {
 func main() {
     fmt.Println("Listening...")
 
-    file, err := os.Open("/dev/input/by-id/usb-RDR_EPOMAKER_Shadow-S-event-if02")
+    file, err := os.Open("Change this with your /dev/input/by-id/DEVICE")// Or you can use the event file as well
     if err != nil {
         fmt.Println("Error opening event file:", err)
         return
     }
     defer file.Close()
 
-    buffer := make([]byte, 24)
+    buffer := make([]byte, 24) // You may want to change this, too
 
     for {
         _, err := file.Read(buffer)
@@ -41,9 +41,8 @@ func main() {
         eventType := uint16(buffer[16]) | uint16(buffer[17])<<8
         eventCode := uint16(buffer[18]) | uint16(buffer[19])<<8
         eventValue := int32(buffer[20]) | int32(buffer[21])<<8 | int32(buffer[22])<<16 | int32(buffer[23])<<24
-
-        fmt.Printf("Event type: %d, Event code: %d, Value: %d\n", eventType, eventCode, eventValue)
-
+       
+    // These values also work for me but may not work for you
         if eventType == 1 {
             if eventCode == 115 && eventValue == 1 {
                 adjustVolume(true)
