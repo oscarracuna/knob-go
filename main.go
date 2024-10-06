@@ -20,19 +20,19 @@ func adjustVolume(increase bool) {
 func isMute(mute bool) {
   if mute {
     fmt.Println("Volume muted!")
-    exec.Command("pactl", "set-sink-mute", "@DEFAULT_SINK", "true")    
+    exec.Command("pactl", "set-sink-mute", "@DEFAULT_SINK@", "true").Run()    
   } else {
     fmt.Println("Volume unmuted!")
-    exec.Command("pactl", "set-sink-mute", "@DEFAULT_SINK", "false")
+    exec.Command("pactl", "set-sink-mute", "@DEFAULT_SINK@", "false").Run()
   }
 }
 
 func main() {
     fmt.Println("Listening...")
-
-    file, err := os.Open("Change this with your /dev/input/by-id/DEVICE")// Or you can use the event file as well
+    // use your own file here -----
+    file, err := os.Open("/dev/input/by-id/usb-RDR_EPOMAKER_Shadow-S-event-if02")// Or you can use the event file as well  
     if err != nil {
-        fmt.Println("Error opening event file:", err)
+        fmt.Println("Unable to open file:", err)
         return
     }
     defer file.Close()
@@ -56,6 +56,8 @@ func main() {
         if eventType == 1 {
             if eventCode == 113 && eventValue == 1{
                 isMute(true)
+            /* } else if eventCode == 113 && eventValue == 0{
+                isMute(false) */
             } else if eventCode == 115 && eventValue == 1 {
                 adjustVolume(true)
             } else if eventCode == 114 && eventValue == 1 {
