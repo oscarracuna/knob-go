@@ -10,11 +10,21 @@ import (
 func adjustVolume(increase bool) {
     if increase {
         fmt.Println("Volume up!")
-        exec.Command("pactl", "set-sink-volume", "1", "+5%").Run()
+        exec.Command("pactl", "set-sink-volume", "@DEFAULT_SINK@", "+5%").Run()
     } else {
         fmt.Println("Volume down!")
-        exec.Command("pactl", "set-sink-volume", "1", "-5%").Run()
+        exec.Command("pactl", "set-sink-volume","@DEFAULT_SINK@", "-5%").Run()
     }
+}
+
+func isMute(mute bool) {
+  if mute {
+    fmt.Println("Volume muted!")
+    exec.Command("pactl", "set-sink-mute", "@DEFAULT_SINK", "true")    
+  } else {
+    fmt.Println("Volume unmuted!")
+    exec.Command("pactl", "set-sink-mute", "@DEFAULT_SINK", "false")
+  }
 }
 
 func main() {
@@ -44,7 +54,9 @@ func main() {
        
     // These values also work for me but may not work for you
         if eventType == 1 {
-            if eventCode == 115 && eventValue == 1 {
+            if eventCode == 113 && eventValue == 1{
+                isMute(true)
+            } else if eventCode == 115 && eventValue == 1 {
                 adjustVolume(true)
             } else if eventCode == 114 && eventValue == 1 {
                 adjustVolume(false)
