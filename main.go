@@ -4,23 +4,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"reflect"
+
+	"github.com/oscarracuna/knob-go/pkg/volume"
 )
 
-func upOrDown(increase bool) {
-	if increase {
-		fmt.Println("Volume up!")
-		exec.Command("pactl", "set-sink-volume", "@DEFAULT_SINK@", "+5%").Run()
-	} else {
-		fmt.Println("Volume down!")
-		exec.Command("pactl", "set-sink-volume", "@DEFAULT_SINK@", "-5%").Run()
-	}
-}
+var (
+	Buffer = make([]byte, 24)
+)
 
 func main() {
 	fmt.Println("Listening...")
-	// use your own id file here -----
 	file, err := os.Open("/dev/input/by-id/usb-RDR_EPOMAKER_Shadow-S-event-if02") // Or you can use the event file as well
 	if err != nil {
 		fmt.Println("Unable to open file:", err)
@@ -28,51 +21,41 @@ func main() {
 	}
 	defer file.Close()
 
-	buffer := make([]byte, 24) // You may want to change this, too
-
 	for {
-		_, err := file.Read(buffer)
+		_, err := file.Read(Buffer)
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			fmt.Println("Error reading event:", err)
 			break
 		}
+		adjustVolume()
+	}
+}
 
-		var eventType = uint16(buffer[16]) | uint16(buffer[17])<<8
-		var eventCode = uint16(buffer[18]) | uint16(buffer[19])<<8
-		var eventValue = int32(buffer[20]) | int32(buffer[21])<<8 | int32(buffer[22])<<16 | int32(buffer[23])<<24
+func adjustVolume() {
+	var EventType = uint16(Buffer[16]) | uint16(Buffer[17])<<8
+	var EventCode = uint16(Buffer[18]) | uint16(Buffer[19])<<8
+	var EventValue = int32(Buffer[20]) | int32(Buffer[21])<<8 | int32(Buffer[22])<<16 | int32(Buffer[23])<<24
 
-		// These values also work for me but may not work for you
-		if eventType == 1 {
-			if eventCode == 115 && eventValue == 1 {
-				upOrDown(true)
-			} else if eventCode == 114 && eventValue == 1 {
-				upOrDown(false)
-			}
-			
-      // =================================================================
-      // temp location of this until I figure out a func or something else
-      // =================================================================
+	if EventType == 1 {
+		if EventCode == 115 && EventValue == 1 {
+			volume.VolumeUp(true)
+			fmt.Println("Volume up")
+		} else if EventCode == 114 && EventValue == 1 {
+			volume.VolumeDown(true)
+			fmt.Println("Volume down")
+		}
+	}
 
-      si_bytes := []byte{77, 117, 116, 101, 58, 32, 121, 101, 115, 10}
-			no_bytes := []byte{77, 117, 116, 101, 58, 32, 110, 111, 10}
-
-			mute_command, err := exec.Command("pactl", "get-sink-mute", "@DEFAULT_SINK@").Output()
-			if err != nil {
-				fmt.Println("Something went wrong with the mute command: ", err)
-			}
-			si := reflect.DeepEqual(mute_command, si_bytes)
-			no := reflect.DeepEqual(mute_command, no_bytes)
-			if eventType == 1 {
-				if !si && eventCode == 113 && eventValue == 1{
-					fmt.Println("Volume muted!")
-					exec.Command("pactl", "set-sink-mute", "@DEFAULT_SINK@", "true").Run()
-				} else if !no && eventCode == 113 && eventValue == 1{
-					fmt.Println("Volume unmuted!")
-					exec.Command("pactl", "set-sink-mute", "@DEFAULT_SINK@", "false").Run()
-				}
-			}
+	status := volume.MuteStatus()
+	if EventType == 1 {
+		if status && EventCode == 113 && EventValue == 1 {
+			fmt.Println("Volume muted")
+			volume.Mute(true)
+		} else if !status && EventCode == 113 && EventValue == 1 {
+			fmt.Println("Volume unmuted")
+			volume.Unmute(true)
 		}
 	}
 }
